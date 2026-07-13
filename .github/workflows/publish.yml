@@ -44,6 +44,16 @@ jobs:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
           # ovsx reads OVSX_PAT from the environment; our secret is named OVSX_TOKEN.
           OVSX_PAT: ${{ secrets.OVSX_TOKEN }}
+      # Dry-run only: prove the marketplace credentials + publisher/namespace align
+      # before a real tag, without publishing anything.
+      - name: 'Verify publish credentials'
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          OVSX_PAT: ${{ secrets.OVSX_TOKEN }}
+        run: |
+          npx vsce verify-pat fallout
+          npx ovsx verify-pat fallout
       - name: Attach .vsix to the GitHub Release
         if: github.event_name == 'push'
         env:
