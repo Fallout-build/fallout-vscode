@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace></RootNamespace>
+    <NoWarn>CS0649;CS0169;CA1050;CA1822;CA2211;IDE1006</NoWarn>
+    <FalloutRootDirectory>..</FalloutRootDirectory>
+    <FalloutTelemetryVersion>1</FalloutTelemetryVersion>
+    <IsPackable>false</IsPackable>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <UseArtifactsOutput>false</UseArtifactsOutput>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Fallout.Common" Version="2026.1.0-preview.104.g6583d78d2c" />
+  </ItemGroup>
+
+</Project>

@@ -132,9 +132,9 @@
         "vscode:prepublish": "npm run compile",
         "compile": "tsc -p ./",
         "watch": "tsc -watch -p ./",
-        "package": "vsce package",
-        "publish:vsce": "vsce publish",
-        "publish:ovsx": "ovsx publish"
+        "package": "vsce package --out fallout.vsix",
+        "publish:vsce": "vsce publish --packagePath fallout.vsix",
+        "publish:ovsx": "ovsx publish fallout.vsix"
     },
     "dependencies": {
         "mermaid": "^11.4.1"

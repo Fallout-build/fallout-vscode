@@ -8,6 +8,15 @@ tsconfig.json
 .gitignore
 .eslintrc*
 
+# Fallout build scaffold — build/publish tooling, not part of the shipped extension.
+.fallout/**
+build/**
+.config/**
+global.json
+nuget.config
+build.ps1
+build.sh
+
 # Ship only Mermaid's self-contained UMD bundle (loaded by the graph webview via a
 # classic <script> tag), not its entire dependency tree or the code-split ESM build.
 node_modules/**

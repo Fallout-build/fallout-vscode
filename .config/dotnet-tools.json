@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "isRoot": true,
+  "tools": {
+    "fallout.globaltools": {
+      "version": "2026.1.0-preview.104.g6583d78d2c",
+      "commands": [
+        "fallout"
+      ]
+    }
+  }
+}

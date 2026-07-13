@@ -1,9 +1,15 @@
 # Publishes the extension to the VS Marketplace and Open VSX, and attaches the
 # .vsix to the GitHub Release. Fires on a version tag (e.g. v2026.1.0).
 #
+# Dogfood: the actual build/package/publish is a Fallout build (build/Build.cs),
+# invoked here via ./build.sh. This workflow only provisions the toolchains and
+# passes the marketplace tokens through the environment.
+#
 # Required repository secrets:
-#   VSCE_PAT   - Azure DevOps PAT, scope Marketplace > Manage (VS Marketplace)
-#   OVSX_TOKEN - Open VSX access token (Eclipse Foundation account)
+#   VSCE_PAT               - Azure DevOps PAT, scope Marketplace > Manage (VS Marketplace)
+#   OVSX_TOKEN             - Open VSX access token (Eclipse Foundation account)
+#   FALLOUT_PACKAGES_TOKEN - token with read:packages, to restore Fallout -preview
+#                            packages (the build framework + CLI) from GitHub Packages
 name: publish
 
 on:
@@ -23,18 +29,17 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - run: npm ci
-      - run: npm run compile
-      - name: Package
-        run: npx vsce package --out fallout.vsix
-      - name: Publish to VS Marketplace
-        run: npx vsce publish --packagePath fallout.vsix
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: 'Fallout: Publish (npm ci + compile + package + publish to both registries)'
+        run: ./build.sh Publish
         env:
+          # Restores Fallout -preview (framework + CLI tool) from GitHub Packages.
+          FALLOUT_PACKAGES_TOKEN: ${{ secrets.FALLOUT_PACKAGES_TOKEN }}
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
-      - name: Publish to Open VSX
-        run: npx ovsx publish fallout.vsix -p "$OVSX_TOKEN"
-        env:
-          OVSX_TOKEN: ${{ secrets.OVSX_TOKEN }}
+          # ovsx reads OVSX_PAT from the environment; our secret is named OVSX_TOKEN.
+          OVSX_PAT: ${{ secrets.OVSX_TOKEN }}
       - name: Attach .vsix to the GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
