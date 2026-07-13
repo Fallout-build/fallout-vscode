@@ -16,6 +16,9 @@ on:
   push:
     tags:
       - 'v*'
+  # Manual dry-run: restore (incl. Fallout -preview from GitHub Packages) + compile +
+  # package, WITHOUT publishing. Validates the toolchain and secrets before tagging.
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -32,8 +35,9 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
-      - name: 'Fallout: Publish (npm ci + compile + package + publish to both registries)'
-        run: ./build.sh Publish
+      # Tag push -> Publish (both registries). Manual dispatch -> Pack only (dry-run).
+      - name: 'Fallout build'
+        run: ./build.sh ${{ github.event_name == 'push' && 'Publish' || 'Pack' }}
         env:
           # Restores Fallout -preview (framework + CLI tool) from GitHub Packages.
           FALLOUT_PACKAGES_TOKEN: ${{ secrets.FALLOUT_PACKAGES_TOKEN }}
@@ -41,6 +45,7 @@ jobs:
           # ovsx reads OVSX_PAT from the environment; our secret is named OVSX_TOKEN.
           OVSX_PAT: ${{ secrets.OVSX_TOKEN }}
       - name: Attach .vsix to the GitHub Release
+        if: github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "${GITHUB_REF_NAME}" fallout.vsix --clobber
