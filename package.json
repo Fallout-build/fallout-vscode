@@ -1,0 +1,149 @@
+{
+    "name": "fallout",
+    "displayName": "Fallout",
+    "description": "Explore, run, and visualize your Fallout (NUKE successor) build targets from VS Code.",
+    "version": "2026.1.0",
+    "publisher": "fallout",
+    "license": "MIT",
+    "engines": {
+        "vscode": "^1.85.0"
+    },
+    "categories": [
+        "Other",
+        "Visualization"
+    ],
+    "keywords": [
+        "fallout",
+        "nuke",
+        "build",
+        "automation",
+        "dotnet"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/Fallout-build/fallout-vscode.git"
+    },
+    "bugs": {
+        "url": "https://github.com/Fallout-build/fallout-vscode/issues"
+    },
+    "homepage": "https://fallout.build",
+    "main": "./out/extension.js",
+    "activationEvents": [
+        "onView:falloutTargets",
+        "workspaceContains:**/.fallout/temp/build-graph.json",
+        "workspaceContains:**/.nuke/temp/build-graph.json"
+    ],
+    "contributes": {
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "id": "fallout",
+                    "title": "Fallout",
+                    "icon": "media/fallout.svg"
+                }
+            ]
+        },
+        "views": {
+            "fallout": [
+                {
+                    "id": "falloutTargets",
+                    "name": "Targets",
+                    "icon": "media/fallout.svg",
+                    "contextualTitle": "Fallout"
+                }
+            ]
+        },
+        "viewsWelcome": [
+            {
+                "view": "falloutTargets",
+                "contents": "No Fallout build graph found in this workspace.\nRun the build once to generate `build-graph.json`, then refresh.\n[Plan build (dry run)](command:fallout.planTarget)"
+            }
+        ],
+        "commands": [
+            {
+                "command": "fallout.refreshTargets",
+                "title": "Refresh Targets",
+                "category": "Fallout",
+                "icon": "$(refresh)"
+            },
+            {
+                "command": "fallout.runTarget",
+                "title": "Run Target",
+                "category": "Fallout",
+                "icon": "$(play)"
+            },
+            {
+                "command": "fallout.goToTarget",
+                "title": "Go to Definition",
+                "category": "Fallout",
+                "icon": "$(go-to-file)"
+            },
+            {
+                "command": "fallout.showGraph",
+                "title": "Show Build Graph",
+                "category": "Fallout",
+                "icon": "$(type-hierarchy-sub)"
+            },
+            {
+                "command": "fallout.planTarget",
+                "title": "Plan (dry run)",
+                "category": "Fallout",
+                "icon": "$(list-tree)"
+            }
+        ],
+        "menus": {
+            "view/title": [
+                {
+                    "command": "fallout.showGraph",
+                    "when": "view == falloutTargets",
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "fallout.refreshTargets",
+                    "when": "view == falloutTargets",
+                    "group": "navigation@2"
+                }
+            ],
+            "view/item/context": [
+                {
+                    "command": "fallout.runTarget",
+                    "when": "view == falloutTargets && viewItem == falloutTarget",
+                    "group": "inline@1"
+                },
+                {
+                    "command": "fallout.goToTarget",
+                    "when": "view == falloutTargets && viewItem == falloutTarget",
+                    "group": "inline@2"
+                }
+            ],
+            "commandPalette": [
+                {
+                    "command": "fallout.runTarget",
+                    "when": "false"
+                },
+                {
+                    "command": "fallout.goToTarget",
+                    "when": "false"
+                }
+            ]
+        }
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "package": "vsce package",
+        "publish:vsce": "vsce publish",
+        "publish:ovsx": "ovsx publish"
+    },
+    "dependencies": {
+        "mermaid": "^11.4.1"
+    },
+    "devDependencies": {
+        "@types/node": "^20.14.0",
+        "@types/vscode": "^1.85.0",
+        "@vscode/vsce": "^3.2.0",
+        "ovsx": "^0.10.0",
+        "typescript": "^5.9.3"
+    }
+}
