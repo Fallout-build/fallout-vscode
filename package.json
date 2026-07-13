@@ -5,6 +5,7 @@
     "version": "2026.1.0",
     "publisher": "fallout",
     "license": "MIT",
+    "icon": "media/icon.png",
     "engines": {
         "vscode": "^1.85.0"
     },
