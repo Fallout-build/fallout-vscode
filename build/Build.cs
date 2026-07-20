@@ -1,3 +1,5 @@
+using System.Linq;
+using System.Reflection;
 using Fallout.Common;
 using Fallout.Common.IO;
 using static Fallout.Common.Tools.Npm.NpmTasks;
@@ -32,7 +34,12 @@ class Build : FalloutBuild
         .DependsOn(Compile)
         .Executes(() =>
         {
-            Npm("run package", workingDirectory: RootDirectory);
+            var (version, preRelease) = FrameworkVersion();
+            Serilog.Log.Information("Packaging extension as {Version} (pre-release: {PreRelease})", version, preRelease);
+            Npm(
+                $"run package -- {version} --no-update-package-json --no-git-tag-version"
+                + (preRelease ? " --pre-release" : ""),
+                workingDirectory: RootDirectory);
         });
 
     Target PublishMarketplace => _ => _
@@ -51,4 +58,26 @@ class Build : FalloutBuild
 
     Target Publish => _ => _
         .DependsOn(PublishMarketplace, PublishOpenVsx);
+
+    // The extension version tracks the Fallout framework it was built against — the pinned
+    // Fallout.Common package, read back from the loaded assembly. Marketplaces accept only
+    // three integers, so a preview (X.Y.Z-preview.N) maps to X.Y.N and is marked pre-release;
+    // a stable release (X.Y.Z) is used verbatim.
+    static (string Version, bool PreRelease) FrameworkVersion()
+    {
+        var info = typeof(FalloutBuild).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion ?? "0.0.0";
+
+        var core = info.Split('+')[0];
+        var dash = core.IndexOf('-');
+        if (dash < 0)
+            return (core, false);
+
+        var parts = core[..dash].Split('.');
+        var major = parts.ElementAtOrDefault(0) ?? "0";
+        var minor = parts.ElementAtOrDefault(1) ?? "0";
+        var height = core[(dash + 1)..].Split('.').FirstOrDefault(p => int.TryParse(p, out _)) ?? "0";
+        return ($"{major}.{minor}.{height}", true);
+    }
 }
