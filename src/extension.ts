@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { BuildGraph, GraphSource, Relation, Target, checkCompatibility, findGraphFile, loadGraph } from './model';
 import { GraphPanel } from './graphPanel';
 import { goToTarget } from './goToTarget';
+import { RunConfigStore, RunConfigViewProvider } from './runConfig';
 
 const RELATION_LABELS: Record<Relation, string> = {
     dependsOn: 'depends on',
@@ -105,9 +106,31 @@ class FalloutTargetsProvider implements vscode.TreeDataProvider<TargetItem> {
     }
 }
 
-function runInTerminal(root: string, args: string): void {
-    const existing = vscode.window.terminals.find(t => t.name === 'Fallout');
-    const terminal = existing ?? vscode.window.createTerminal({ name: 'Fallout', cwd: root });
+/**
+ * Placeholder for the Deployment view. The continuous-delivery graph (channels →
+ * environments → targets, ADR-0009) is not emitted by the framework yet, so this
+ * returns nothing and the view shows its welcome content. It becomes real once the
+ * build writes a deployment-graph.json.
+ */
+class DeploymentProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
+    getTreeItem(element: vscode.TreeItem): vscode.TreeItem {
+        return element;
+    }
+    getChildren(): vscode.ProviderResult<vscode.TreeItem[]> {
+        return [];
+    }
+}
+
+function runInTerminal(root: string, args: string, env?: Record<string, string>): void {
+    const hasEnv = env !== undefined && Object.keys(env).length > 0;
+    let terminal = vscode.window.terminals.find(t => t.name === 'Fallout');
+    if (hasEnv) {
+        // Terminal env is fixed at creation; recreate so the current secrets apply.
+        terminal?.dispose();
+        terminal = vscode.window.createTerminal({ name: 'Fallout', cwd: root, env });
+    } else {
+        terminal ??= vscode.window.createTerminal({ name: 'Fallout', cwd: root });
+    }
     terminal.show();
     terminal.sendText(process.platform === 'win32' ? `./build.ps1 ${args}` : `./build.sh ${args}`);
 }
@@ -115,12 +138,29 @@ function runInTerminal(root: string, args: string): void {
 export function activate(context: vscode.ExtensionContext): void {
     const extensionVersion: string = context.extension.packageJSON.version;
     const provider = new FalloutTargetsProvider(extensionVersion);
+    const runConfig = new RunConfigStore(context);
 
-    const runTarget = (name: string) => {
-        const root = provider.source?.root;
-        if (root) {
-            runInTerminal(root, name);
-        }
+    const workspaceRoot = () => provider.source?.root ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+
+    // Silent run (▶): apply saved parameters as args and secrets as env.
+    const runTarget = async (name: string): Promise<void> => {
+        const root = workspaceRoot();
+        if (!root) { return; }
+        const args = [name, runConfig.buildArgs()].filter(Boolean).join(' ');
+        runInTerminal(root, args, await runConfig.buildEnv());
+    };
+
+    // Prompt run: prefill with target + saved args, let the user tweak before running.
+    const runTargetWithParameters = async (name: string): Promise<void> => {
+        const root = workspaceRoot();
+        if (!root) { return; }
+        const edited = await vscode.window.showInputBox({
+            title: `Run ${name}`,
+            prompt: 'Arguments passed to the Fallout build (secrets are still applied as environment variables)',
+            value: [name, runConfig.buildArgs()].filter(Boolean).join(' '),
+        });
+        if (edited === undefined) { return; } // cancelled
+        runInTerminal(root, edited, await runConfig.buildEnv());
     };
 
     const refreshAll = () => {
@@ -141,12 +181,22 @@ export function activate(context: vscode.ExtensionContext): void {
     watcher.onDidDelete(() => provider.refresh());
 
     context.subscriptions.push(
-        vscode.window.registerTreeDataProvider('falloutTargets', provider),
+        // Same provider instance backs both the Fallout-container Build view and the
+        // mirrored Explorer dock — one graph, two homes; refresh() updates both.
+        vscode.window.registerTreeDataProvider('fallout.build', provider),
+        vscode.window.registerTreeDataProvider('fallout.buildExplorer', provider),
+        vscode.window.registerTreeDataProvider('fallout.deployment', new DeploymentProvider()),
+        vscode.window.registerWebviewViewProvider('fallout.runConfig', new RunConfigViewProvider(runConfig, context.subscriptions)),
         watcher,
         vscode.commands.registerCommand('fallout.refreshTargets', refreshAll),
         vscode.commands.registerCommand('fallout.runTarget', (item?: TargetItem) => {
             if (item?.target) {
-                runTarget(item.target.name);
+                void runTarget(item.target.name);
+            }
+        }),
+        vscode.commands.registerCommand('fallout.runTargetWithParameters', (item?: TargetItem) => {
+            if (item?.target) {
+                void runTargetWithParameters(item.target.name);
             }
         }),
         vscode.commands.registerCommand('fallout.goToTarget', (item?: TargetItem) => {
@@ -164,13 +214,13 @@ export function activate(context: vscode.ExtensionContext): void {
                 provider.source ??= source;
                 const graph = loadGraph(source);
                 checkCompatibility(graph, extensionVersion);
-                GraphPanel.createOrShow(context.extensionUri, graph, runTarget);
+                GraphPanel.createOrShow(context.extensionUri, graph, name => void runTarget(name));
             } catch (e) {
                 void vscode.window.showWarningMessage(`Fallout: could not parse ${source.file}: ${e}`);
             }
         }),
         vscode.commands.registerCommand('fallout.planTarget', () => {
-            const root = provider.source?.root ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+            const root = workspaceRoot();
             if (root) {
                 runInTerminal(root, '--plan');
             }
